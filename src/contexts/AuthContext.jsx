@@ -14,6 +14,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Ensure profile doc exists in Firestore
@@ -36,8 +40,17 @@ export function AuthProvider({ children }) {
     return unsub;
   }, []);
 
-  const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
-  const logOut = () => signOut(auth);
+  const signInWithGoogle = () => {
+    if (!auth || !googleProvider) {
+      console.warn("Auth not configured");
+      return Promise.reject("Auth not configured");
+    }
+    return signInWithPopup(auth, googleProvider);
+  };
+  const logOut = () => {
+    if (!auth) return Promise.resolve();
+    return signOut(auth);
+  };
 
   return (
     <AuthContext.Provider value={{ user, loading, signInWithGoogle, logOut }}>

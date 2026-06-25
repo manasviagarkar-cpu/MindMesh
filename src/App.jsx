@@ -11,8 +11,14 @@ import Calendar from './pages/Calendar';
 import RelationshipPulse from './pages/RelationshipPulse';
 import Habits from './pages/Habits';
 import Profile from './pages/Profile';
+import ConfigSetupGuide from './pages/ConfigSetupGuide';
+import { isFirebaseConfigured } from './firebase';
 
 export default function App() {
+  if (!isFirebaseConfigured || !import.meta.env.VITE_GEMINI_API_KEY) {
+    return <ConfigSetupGuide />;
+  }
+
   return (
     <AuthProvider>
       <BrowserRouter>
