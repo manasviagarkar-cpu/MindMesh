@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { doc, setDoc, getDoc, getDocs, collection } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { localDb } from '../utils/localDb';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
 import CircularProgress from '../components/CircularProgress';
 import toast from 'react-hot-toast';
@@ -34,10 +33,7 @@ export default function Habits() {
 
   async function loadHabits() {
     try {
-      const snap = await getDocs(collection(db, 'users', user.uid, 'habits'));
-      const all = {};
-      snap.docs.forEach((d) => { all[d.id] = d.data(); });
-
+      const all = await localDb.getHabits();
       setWeekHistory(all);
       setTodayHabits(all[TODAY] || {});
       setStreak(computeStreak(all));
@@ -78,7 +74,7 @@ export default function Habits() {
 
     setSaving(key);
     try {
-      await setDoc(doc(db, 'users', user.uid, 'habits', TODAY), updated, { merge: true });
+      await localDb.saveHabitsForDate(TODAY, updated);
       toast.success(newVal ? `${HABITS.find(h => h.key === key)?.emoji} Great job!` : 'Habit unchecked', {
         duration: 1500,
       });

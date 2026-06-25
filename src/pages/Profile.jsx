@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { localDb } from '../utils/localDb';
 import { format, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import CircularProgress from '../components/CircularProgress';
@@ -36,14 +35,13 @@ export default function Profile() {
 
   async function loadProfile() {
     try {
-      const [profSnap, tasksSnap, relsSnap, habitsSnap] = await Promise.all([
-        getDoc(doc(db, 'users', user.uid, 'profile', 'main')),
-        getDocs(collection(db, 'users', user.uid, 'tasks')),
-        getDocs(collection(db, 'users', user.uid, 'relationships')),
-        getDocs(collection(db, 'users', user.uid, 'habits')),
+      const [profData, allTasks, allRels, habitMap] = await Promise.all([
+        localDb.getProfile(),
+        localDb.getTasks(),
+        localDb.getRelationships(),
+        localDb.getHabits(),
       ]);
 
-      const profData = profSnap.exists() ? profSnap.data() : {};
       setProfile(profData);
       setForm({
         displayName: profData.displayName || user.displayName || '',
@@ -52,12 +50,10 @@ export default function Profile() {
       });
 
       // Compute stats
-      const tasksDone = tasksSnap.docs.filter((d) => d.data().done).length;
-      const rels = relsSnap.docs.length;
+      const tasksDone = allTasks.filter((t) => t.done).length;
+      const rels = allRels.length;
 
       // Streak: consecutive days with any habit
-      const habitMap = {};
-      habitsSnap.docs.forEach((d) => { habitMap[d.id] = d.data(); });
       let streak = 0;
       let day = new Date();
       // skip today if nothing yet
@@ -85,17 +81,15 @@ export default function Profile() {
   async function saveProfile() {
     setSaving(true);
     try {
-      await setDoc(
-        doc(db, 'users', user.uid, 'profile', 'main'),
-        {
-          displayName: form.displayName.trim(),
-          timezone: form.timezone,
-          notifications: form.notifications,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      setProfile((prev) => ({ ...prev, ...form }));
+      const updated = {
+        ...profile,
+        displayName: form.displayName.trim(),
+        timezone: form.timezone,
+        notifications: form.notifications,
+        updatedAt: new Date().toISOString(),
+      };
+      await localDb.saveProfile(updated);
+      setProfile(updated);
       setEditMode(false);
       toast.success('Profile updated! ✨');
     } catch (e) {
@@ -105,7 +99,7 @@ export default function Profile() {
     }
   }
 
-  const joinedDate = profile?.createdAt?.toDate ? profile.createdAt.toDate() : null;
+  const joinedDate = profile?.createdAt ? new Date(profile.createdAt) : null;
   const memberDays = joinedDate ? differenceInDays(new Date(), joinedDate) + 1 : null;
 
   const STAT_ITEMS = [
@@ -325,7 +319,7 @@ export default function Profile() {
       <div className="card" style={{ border: '1.5px solid rgba(239,68,68,0.15)', background: '#FFFBFB' }}>
         <div className="section-title" style={{ color: '#DC2626' }}>⚙️ Account</div>
         <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
-          Your data is securely stored in Firebase and tied to your Google account. Signing out will not delete your data.
+          Your data is stored 100% locally on this device. Signing out will return you to the login screen.
         </p>
         <button
           id="signout-btn"

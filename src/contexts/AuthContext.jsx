@@ -1,55 +1,58 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import {
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-} from 'firebase/auth';
-import { auth, googleProvider, db } from '../firebase';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { localDb } from '../utils/localDb';
 
 const AuthContext = createContext(null);
+const LOGGED_IN_KEY = 'mindmesh_local_logged_in';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Ensure profile doc exists in Firestore
-        const profileRef = doc(db, 'users', firebaseUser.uid, 'profile', 'main');
-        const snap = await getDoc(profileRef);
-        if (!snap.exists()) {
-          await setDoc(profileRef, {
-            displayName: firebaseUser.displayName,
-            email:       firebaseUser.email,
-            photoURL:    firebaseUser.photoURL,
-            timezone:    Intl.DateTimeFormat().resolvedOptions().timeZone,
-            notifications: { email: true, push: false },
-            createdAt: serverTimestamp(),
+    (async () => {
+      try {
+        const isLoggedIn = localStorage.getItem(LOGGED_IN_KEY) === 'true';
+        if (isLoggedIn) {
+          const profile = await localDb.getProfile();
+          setUser({
+            uid: 'local-guest-user',
+            ...profile,
           });
+        } else {
+          setUser(null);
         }
+      } catch (e) {
+        console.error('Error loading mock user:', e);
+      } finally {
+        setLoading(false);
       }
-      setUser(firebaseUser);
-      setLoading(false);
-    });
-    return unsub;
+    })();
   }, []);
 
-  const signInWithGoogle = () => {
-    if (!auth || !googleProvider) {
-      console.warn("Auth not configured");
-      return Promise.reject("Auth not configured");
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    try {
+      localStorage.setItem(LOGGED_IN_KEY, 'true');
+      const profile = await localDb.getProfile();
+      const guestUser = {
+        uid: 'local-guest-user',
+        ...profile,
+      };
+      setUser(guestUser);
+      return guestUser;
+    } finally {
+      setLoading(false);
     }
-    return signInWithPopup(auth, googleProvider);
   };
-  const logOut = () => {
-    if (!auth) return Promise.resolve();
-    return signOut(auth);
+
+  const logOut = async () => {
+    setLoading(true);
+    try {
+      localStorage.removeItem(LOGGED_IN_KEY);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

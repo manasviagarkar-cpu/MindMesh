@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { localDb } from '../utils/localDb';
 import { differenceInDays, format } from 'date-fns';
 import { quickPrompt } from '../gemini';
 import toast from 'react-hot-toast';
@@ -34,8 +33,7 @@ export default function RelationshipPulse() {
 
   async function loadPeople() {
     try {
-      const snap = await getDocs(collection(db, 'users', user.uid, 'relationships'));
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const list = await localDb.getRelationships();
       list.sort((a, b) => getDays(b) - getDays(a)); // most overdue first
       setPeople(list);
       // Auto-generate nudge for most-overdue person
@@ -65,15 +63,13 @@ export default function RelationshipPulse() {
   async function addPerson() {
     if (!form.name.trim()) { toast.error('Please enter a name'); return; }
     try {
-      const docRef = await addDoc(collection(db, 'users', user.uid, 'relationships'), {
+      const newPerson = await localDb.addRelationship({
         name:          form.name.trim(),
         emoji:         form.emoji,
         type:          form.type,
         lastConnected: form.lastConnected,
         notes:         [],
-        createdAt:     serverTimestamp(),
       });
-      const newPerson = { id: docRef.id, ...form, notes: [] };
       setPeople((prev) => [newPerson, ...prev].sort((a, b) => getDays(b) - getDays(a)));
       setShowModal(false);
       setForm({ name: '', emoji: '👤', type: 'Friend', lastConnected: format(new Date(), 'yyyy-MM-dd') });
@@ -86,7 +82,7 @@ export default function RelationshipPulse() {
   async function markConnected(person) {
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
-      await updateDoc(doc(db, 'users', user.uid, 'relationships', person.id), { lastConnected: today });
+      await localDb.updateRelationship(person.id, { lastConnected: today });
       setPeople((prev) => prev.map((p) => p.id === person.id ? { ...p, lastConnected: today } : p));
       if (selectedPerson?.id === person.id) setSelectedPerson({ ...selectedPerson, lastConnected: today });
       toast.success(`Marked connected with ${person.name} today! 🎉`);
@@ -98,7 +94,7 @@ export default function RelationshipPulse() {
     const newNote = { text: noteInput.trim(), date: format(new Date(), 'yyyy-MM-dd') };
     const updatedNotes = [...(selectedPerson.notes || []), newNote];
     try {
-      await updateDoc(doc(db, 'users', user.uid, 'relationships', selectedPerson.id), { notes: updatedNotes });
+      await localDb.updateRelationship(selectedPerson.id, { notes: updatedNotes });
       setSelectedPerson({ ...selectedPerson, notes: updatedNotes });
       setPeople((prev) => prev.map((p) => p.id === selectedPerson.id ? { ...p, notes: updatedNotes } : p));
       setNoteInput('');

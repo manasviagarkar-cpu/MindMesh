@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, addDoc, getDocs, orderBy, query, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { chatWithAria, parseTaskFromResponse, getRemainingCalls, isRateLimited } from '../gemini';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { localDb } from '../utils/localDb';
 
 const WELCOME_MSG = {
   id: 'welcome',
@@ -38,12 +37,8 @@ export default function AriaChat() {
     if (!user) return;
     (async () => {
       try {
-        const snap = await getDocs(query(
-          collection(db, 'users', user.uid, 'chats'),
-          orderBy('timestamp', 'asc'),
-        ));
-        if (!snap.empty) {
-          const history = snap.docs.map((d) => ({ id: d.id, ...d.data(), timestamp: d.data().timestamp?.toDate() }));
+        const history = await localDb.getChats();
+        if (history && history.length > 0) {
           setMessages([WELCOME_MSG, ...history]);
         }
       } catch (e) {
@@ -59,14 +54,13 @@ export default function AriaChat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Save message to Firestore
+  // Save message to localDb
   const saveMessage = useCallback(async (msg) => {
     if (!user) return;
     try {
-      await addDoc(collection(db, 'users', user.uid, 'chats'), {
+      await localDb.addChat({
         role: msg.role,
         content: msg.content,
-        timestamp: serverTimestamp(),
         taskExtracted: msg.taskExtracted || null,
       });
     } catch (e) {
@@ -74,18 +68,16 @@ export default function AriaChat() {
     }
   }, [user]);
 
-  // Save task to Firestore
+  // Save task to localDb
   const saveTask = async (taskData) => {
     if (!user) return;
     try {
-      await addDoc(collection(db, 'users', user.uid, 'tasks'), {
+      await localDb.addTask({
         task:           taskData.task,
         deadline:       taskData.deadline,
         priority:       taskData.priority,
         category:       taskData.category,
         estimatedHours: taskData.estimatedHours || 1,
-        done:           false,
-        createdAt:      serverTimestamp(),
       });
       toast.success(`Task added: ${taskData.task}`, { icon: '✅', duration: 3000 });
     } catch (e) {

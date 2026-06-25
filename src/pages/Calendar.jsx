@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { localDb } from '../utils/localDb';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, isToday, differenceInDays } from 'date-fns';
 import { quickPrompt } from '../gemini';
 import toast from 'react-hot-toast';
@@ -31,8 +30,8 @@ export default function Calendar() {
 
   async function loadTasks() {
     try {
-      const snap = await getDocs(collection(db, 'users', user.uid, 'tasks'));
-      setTasks(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const list = await localDb.getTasks();
+      setTasks(list);
     } catch (e) {
       console.error(e);
     } finally {

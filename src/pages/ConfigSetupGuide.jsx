@@ -1,13 +1,5 @@
-import { isFirebaseConfigured, firebaseConfig } from '../firebase';
-
 export default function ConfigSetupGuide() {
   const isGeminiConfigured = !!import.meta.env.VITE_GEMINI_API_KEY;
-
-  const vars = [
-    { name: 'VITE_FIREBASE_API_KEY', value: firebaseConfig.apiKey, desc: 'Firebase Authentication API key' },
-    { name: 'VITE_FIREBASE_PROJECT_ID', value: firebaseConfig.projectId, desc: 'Firebase Database Project Identifier' },
-    { name: 'VITE_GEMINI_API_KEY', value: import.meta.env.VITE_GEMINI_API_KEY, desc: 'Google AI Studio key for ARIA companion' },
-  ];
 
   return (
     <div style={{
@@ -42,50 +34,45 @@ export default function ConfigSetupGuide() {
             letterSpacing: '-0.025em',
             marginBottom: '0.5rem',
           }}>
-            API Configuration Required
+            AI API Key Required
           </h1>
           <p style={{ color: '#94A3B8', fontSize: '0.92rem', lineHeight: 1.5 }}>
-            MindMesh is successfully deployed, but some mandatory environment variables are missing from your configuration.
+            MindMesh is running locally, but requires a Gemini API Key to enable the ARIA conversational assistant.
           </p>
         </div>
 
         {/* Status Checklist */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', marginBottom: '2.5rem' }}>
-          {vars.map((v) => {
-            const ok = !!v.value;
-            return (
-              <div key={v.name} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-                background: ok ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                border: `1.5px solid ${ok ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
-                borderRadius: '16px',
-                padding: '1rem 1.25rem',
-              }}>
-                <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>
-                  {ok ? '🟢' : '🔴'}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.875rem', fontFamily: 'monospace', color: ok ? '#34D399' : '#F87171' }}>
-                    {v.name}
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.15rem' }}>
-                    {v.desc}
-                  </div>
-                </div>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: ok ? '#34D399' : '#F87171' }}>
-                  {ok ? 'Configured' : 'Missing'}
-                </span>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            background: isGeminiConfigured ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+            border: `1.5px solid ${isGeminiConfigured ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+            borderRadius: '16px',
+            padding: '1rem 1.25rem',
+          }}>
+            <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>
+              {isGeminiConfigured ? '🟢' : '🔴'}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: '0.875rem', fontFamily: 'monospace', color: isGeminiConfigured ? '#34D399' : '#F87171' }}>
+                VITE_GEMINI_API_KEY
               </div>
-            );
-          })}
+              <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.15rem' }}>
+                Google AI Studio API Key for the ARIA productivity engine.
+              </div>
+            </div>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: isGeminiConfigured ? '#34D399' : '#F87171' }}>
+              {isGeminiConfigured ? 'Configured' : 'Missing'}
+            </span>
+          </div>
         </div>
 
         {/* Action Steps */}
         <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.15)', paddingTop: '2rem' }}>
           <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#E2E8F0', marginBottom: '1rem' }}>
-            🚀 How to Fix This on Vercel:
+            🚀 How to set this key:
           </h2>
           <ol style={{
             fontSize: '0.85rem',
@@ -97,16 +84,13 @@ export default function ConfigSetupGuide() {
             gap: '0.75rem',
           }}>
             <li>
-              Open your <strong>Vercel Dashboard</strong> and select your project.
+              Obtain a free API Key from the <strong><a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#A78BFA', textDecoration: 'underline' }}>Google AI Studio Console</a></strong>.
             </li>
             <li>
-              Navigate to <strong>Settings</strong> &gt; <strong>Environment Variables</strong>.
+              <strong>For Local Runs:</strong> Add <code>VITE_GEMINI_API_KEY=your_key_here</code> inside a <code>.env</code> file in your project root.
             </li>
             <li>
-              Add the missing variables listed above. Refer to <code>.env.example</code> for standard key names.
-            </li>
-            <li>
-              Go to the <strong>Deployments</strong> tab, click the three dots on your latest deployment, select <strong>Redeploy</strong>, and make sure to uncheck "Use existing build cache" to run a fresh build.
+              <strong>For Vercel Runs:</strong> Go to Project Settings &gt; Environment Variables, add <code>VITE_GEMINI_API_KEY</code>, and trigger a Redeploy.
             </li>
           </ol>
         </div>

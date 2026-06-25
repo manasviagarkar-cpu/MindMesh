@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, limit, getDocs, where, Timestamp } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { format, differenceInDays, addDays, formatDistanceToNow } from 'date-fns';
 import CircularProgress from '../components/CircularProgress';
 import { DashboardSkeleton } from '../components/SkeletonLoader';
+import { localDb } from '../utils/localDb';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -39,51 +38,35 @@ export default function Dashboard() {
   }, [user]);
 
   async function loadData() {
-    const uid = user.uid;
     try {
-      // Top 3 priority tasks (not done)
-      const tSnap = await getDocs(query(
-        collection(db, 'users', uid, 'tasks'),
-        where('done', '==', false),
-        orderBy('priority'),
-        limit(6),
-      ));
-      const allTasks = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      // Sort: HIGH first
+      const allTasks = await localDb.getTasks();
+      const pendingTasks = allTasks.filter((t) => !t.done);
+      
+      // Top 3 priority tasks: sort HIGH first
       const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-      allTasks.sort((a, b) => (order[a.priority] ?? 3) - (order[b.priority] ?? 3));
-      setTasks(allTasks.slice(0, 3));
+      const prioritySorted = [...pendingTasks].sort((a, b) => (order[a.priority] ?? 3) - (order[b.priority] ?? 3));
+      setTasks(prioritySorted.slice(0, 3));
 
-      // Next 3 deadlines
-      const now = Timestamp.now();
-      const dSnap = await getDocs(query(
-        collection(db, 'users', uid, 'tasks'),
-        where('done', '==', false),
-        orderBy('deadline'),
-        limit(6),
-      ));
-      const upcoming = dSnap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
+      // Next 3 deadlines: sort by deadline ascending
+      const upcoming = [...pendingTasks]
         .filter((t) => t.deadline)
+        .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
         .slice(0, 3);
       setDeadlines(upcoming);
 
       // Relationships needing attention (sort by days since contact desc)
-      const rSnap = await getDocs(collection(db, 'users', uid, 'relationships'));
-      const rels = rSnap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => {
-          const dA = a.lastConnected ? differenceInDays(new Date(), new Date(a.lastConnected)) : 999;
-          const dB = b.lastConnected ? differenceInDays(new Date(), new Date(b.lastConnected)) : 999;
-          return dB - dA;
-        });
-      setRelationships(rels.slice(0, 1)); // top nudge
+      const rels = await localDb.getRelationships();
+      const sortedRels = [...rels].sort((a, b) => {
+        const dA = a.lastConnected ? differenceInDays(new Date(), new Date(a.lastConnected)) : 999;
+        const dB = b.lastConnected ? differenceInDays(new Date(), new Date(b.lastConnected)) : 999;
+        return dB - dA;
+      });
+      setRelationships(sortedRels.slice(0, 1)); // top nudge
 
       // Today's habits
       const today = format(new Date(), 'yyyy-MM-dd');
-      const hSnap = await getDocs(collection(db, 'users', uid, 'habits'));
-      const todayHabit = hSnap.docs.find((d) => d.id === today);
-      setHabits(todayHabit ? todayHabit.data() : {});
+      const habitsMap = await localDb.getHabits();
+      setHabits(habitsMap[today] || {});
     } catch (e) {
       console.error('Dashboard load error:', e);
     } finally {
