@@ -3,10 +3,11 @@
 [![React v19](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black&style=flat-square)](https://react.dev/)
 [![Vite v8](https://img.shields.io/badge/Vite-8.1-646CFF?logo=vite&style=flat-square)](https://vite.dev/)
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-v4.0-06B6D4?logo=tailwindcss&style=flat-square)](https://tailwindcss.com/)
-[![Firebase](https://img.shields.io/badge/Firebase-v12.15-FFCA28?logo=firebase&logoColor=black&style=flat-square)](https://firebase.google.com/)
 [![Vitest](https://img.shields.io/badge/Vitest-Unit_Tests-76E2B2?logo=vitest&style=flat-square)](https://vitest.dev/)
 
-> **MindMesh** is a professional, AI-powered personal organizer, task tracker, and wellness/relationship dashboard. Using a warm, emotionally intelligent AI core named **ARIA** (powered by Gemini 2.0), MindMesh automates the friction of scheduling, habits logging, and staying in touch with the people who matter most.
+> **MindMesh** is a professional, AI-powered personal organizer, task tracker, and wellness/relationship dashboard. Using a warm, emotionally intelligent AI core named **ARIA** (powered by Gemini 2.0), MindMesh automates the friction of scheduling, habits logging, and staying in touch with the people who matter most. 
+
+All user data is stored **100% locally** in the browser's `localStorage`, requiring no complex database setups, servers, or cloud configurations.
 
 ---
 
@@ -36,7 +37,7 @@
 
 *   **Frontend**: React 19 (Hooks, Context API, Protected Router), Vite 8.
 *   **Styling**: Tailwind CSS v4 (using the `@tailwindcss/vite` native plugin) paired with refined Vanilla CSS custom properties for cohesive micro-animations and typography.
-*   **Database & Auth**: Firebase Firestore (NoSQL document structure) & Google Auth Providers.
+*   **Database & Auth**: Client-side `localStorage` Database and Instant Guest login.
 *   **AI Models**: Google Generative AI (`gemini-2.0-flash`) via the official `@google/generative-ai` SDK.
 *   **Testing**: Vitest for ultra-fast, native ES modules unit testing.
 *   **Linter**: Oxlint for lightning-fast Rust-based JS verification.
@@ -50,8 +51,8 @@ MindMesh/
 ├── .env.example            # Environment variables template
 ├── .gitignore              # Files ignored in version control
 ├── .oxlintrc.json          # Oxlint configuration rules
-├── firestore.rules         # Firebase Firestore security rules
 ├── index.html              # App entry HTML template
+├── vercel.json             # Vercel single-page application routing configurations
 ├── package.json            # Scripts, dependencies, and test configurations
 ├── vite.config.js          # Vite config bundling Tailwind & React
 ├── src/
@@ -59,7 +60,6 @@ MindMesh/
 │   ├── App.jsx             # Router definition and route guarding
 │   ├── App.css             # Main styling transitions
 │   ├── index.css           # Global design system & Tailwind v4 imports
-│   ├── firebase.js         # Firebase Auth & Firestore client initializations
 │   ├── gemini.js           # Gemini SDK wrapper, sanitizers, and rate-limiting
 │   ├── gemini.test.js      # Vitest unit test suite
 │   ├── components/         # Reusable presentation and utility components
@@ -70,14 +70,17 @@ MindMesh/
 │   │   └── SkeletonLoader.jsx   # UI shimmer loaders during fetches
 │   ├── contexts/
 │   │   └── AuthContext.jsx      # Context provider handling login/session state
+│   ├── utils/
+│   │   └── localDb.js           # Client-side localStorage database engine
 │   └── pages/              # Primary route-based views
 │       ├── AriaChat.jsx         # Conversational voice/text AI assistant page
 │       ├── Calendar.jsx         # Deadline and scheduling grid view
 │       ├── Dashboard.jsx        # Landing dashboard tracking priority metrics
 │       ├── Habits.jsx           # Daily habit checkbox list
-│       ├── Login.jsx            # Clean, premium Google sign-in layout
-│       ├── Profile.jsx          # Profile overview & sign out
-│       └── RelationshipPulse.jsx# Connection logs and relationship nudges
+│       ├── Login.jsx            # Clean, premium guest sign-in layout
+│       ├── Profile.jsx          # Profile overview, statistics, and settings
+│       ├── RelationshipPulse.jsx# Connection logs and relationship nudges
+│       └── ConfigSetupGuide.jsx # Setup instructions displayed if Gemini API key is missing
 ```
 
 ---
@@ -100,31 +103,10 @@ Copy the `.env.example` template into a new `.env` file in the root directory:
 ```bash
 cp .env.example .env
 ```
-Fill in the credentials obtained from your Google AI Studio and Firebase Developer Console:
+Fill in the Gemini API key obtained from your Google AI Studio:
 ```ini
 # Gemini API Key (https://aistudio.google.com/app/apikey)
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
-
-# Firebase Web App Config (Firebase Console -> Project Settings)
-VITE_FIREBASE_API_KEY=your_firebase_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
-VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
-VITE_FIREBASE_APP_ID=your_firebase_app_id
-```
-
-### 3. Setup Firestore Rules
-If you are deploying your project to production, apply the rules found in [firestore.rules](file:///c:/Users/lenovo/Downloads/MindMesh/firestore.rules) to protect user collections. Only authenticated owners are permitted to read/write their own workspace documents:
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
 ```
 
 ---
